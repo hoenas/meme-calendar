@@ -191,6 +191,7 @@ def refill_pool(
         random.shuffle(candidates)
 
         added = 0
+        checked = 0
         # Die Metadaten kosten je einen Request auf die Watch-Page. Seriell
         # dauert das bei einem kalten Pool zu lange, deshalb schubweise
         # parallel (klein gehalten) mit einer Pause dazwischen - und
@@ -225,6 +226,7 @@ def refill_pool(
                     if added == 0:
                         raise
                     break
+                checked += len(metas)
                 for entry, category, meta in metas:
                     if added >= wanted:
                         break
@@ -252,6 +254,13 @@ def refill_pool(
                         continue
                     known.add(entry.video_id)
                     added += 1
+
+        if added == 0 and checked:
+            # Requests gingen raus, aber kein einziges Video kam durch - z.B.
+            # weil die Watch-Page-Struktur nicht mehr passt oder alle
+            # Kandidaten den Längenfilter reißen. Ohne dieses Log sieht das
+            # nach "stumm nichts passiert" statt nach "aktiv abgelehnt" aus.
+            log.info("Nachschub: keiner von %d geprüften Kandidaten brauchbar", checked)
 
     return added
 

@@ -240,7 +240,18 @@ def fetch_video_meta(
                     "YouTube drosselt die Abrufe (HTTP "
                     f"{resp.status_code}). Später erneut versuchen."
                 )
+            if "consent.youtube.com" in str(resp.url):
+                # Das Consent-Cookie greift nicht (z.B. andere Region/Consent-
+                # Variante ab dieser IP) - ohne Log sieht das aus wie "jedes
+                # Video unbrauchbar", obwohl gar keins wirklich geprüft wurde.
+                log.warning(
+                    "Watch-Page für %s landete auf der Consent-Wall (%s)",
+                    video_id,
+                    resp.url,
+                )
+                return None
             if resp.status_code != 200:
+                log.warning("Watch-Page für %s: HTTP %s", video_id, resp.status_code)
                 return None
             buf = bytearray()
             duration: int | None = None
@@ -260,6 +271,16 @@ def fetch_video_meta(
                 if len(buf) > _STREAM_CAP:
                     break
         if duration is None:
+            # Seite kam durch (200, keine Consent-Wall), aber das erwartete
+            # JSON-Feld stand nicht drin - z.B. weil YouTube die Watch-Page
+            # für diese Anfrage anders aufgebaut hat. Ohne Log nicht von einem
+            # echten "Video unbrauchbar" zu unterscheiden.
+            log.warning(
+                "Watch-Page für %s gelesen (%d Bytes), aber lengthSeconds nicht "
+                "gefunden",
+                video_id,
+                len(buf),
+            )
             return None
         # Fehlt das Flag, gehen wir von einbettbar aus - der iframe zeigt im
         # Zweifel selbst eine Fehlermeldung.
