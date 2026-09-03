@@ -1,0 +1,102 @@
+# Meme-Kalender
+
+Ein Adventskalender für Arbeitstage: pro Arbeitstag ein deutsches Meme-Short.
+Die Anforderungen und alle getroffenen Entscheidungen stehen in
+[AGENDS.md](AGENDS.md).
+
+## Schnellstart (lokal)
+
+```sh
+nix run          # http://127.0.0.1:8000
+```
+
+oder in der Entwicklungsumgebung:
+
+```sh
+nix develop
+python -m memecal --reload
+```
+
+Beim ersten Start übernimmt die App die kuratierte Kanalliste. Auf `/register`
+registrieren — der allererste Account wird automatisch Admin und ist sofort
+freigeschaltet, keine weitere Einrichtung nötig.
+
+`MEMECAL_ADMIN_PASSWORD` ist optional und legt stattdessen schon beim Start
+einen festen Admin an (praktisch für automatisiertes Deployment); ist die
+Variable gesetzt, entfällt der Auto-Admin bei der Registrierung.
+
+## Deployment (Docker)
+
+```sh
+cp .env.example .env
+nix build .#dockerImage
+docker load < result
+docker compose up -d
+```
+
+`MEMECAL_ADMIN_PASSWORD` in der `.env` ist optional (siehe oben) — ohne sie
+wird einfach der erste, der sich registriert, zum Admin.
+
+Der Container lauscht auf `127.0.0.1:8000`; TLS und die Domain
+`zitronas.deutsches` macht der Reverse-Proxy davor. SQLite liegt im Volume
+`memecal-data` unter `/data`.
+
+## Wie es funktioniert
+
+**Quelle.** YouTube, komplett ohne Credentials. Pro Kanal wird der offizielle
+Atom-Feed (`feeds/videos.xml?channel_id=…`) gelesen. Dauer und
+Einbettbarkeit stehen nicht im Feed, sondern nur im JSON-Blob der Watch-Page
+(`lengthSeconds`, `playableInEmbed`) — die wird gestreamt und abgebrochen,
+sobald beide Werte da sind. Aus der EU braucht jeder Request einen
+Consent-Cookie, sonst kommt ein 302 auf `consent.youtube.com`.
+
+Zu viele Watch-Page-Abrufe in kurzer Zeit quittiert YouTube mit HTTP 429 bzw.
+einem CAPTCHA-Redirect. Das wird als eigener Fehler behandelt, nicht als
+"Video unbrauchbar" — sonst würde der Pool stillschweigend alles verwerfen.
+
+**Kanäle** werden im Admin-UI gepflegt, jeweils mit Kategorie. Handles
+(`@name`) werden einmalig beim Anlegen zur `channel_id` aufgelöst; danach
+läuft alles über den Feed. `MEMECAL_DEFAULT_CHANNELS` überschreibt die
+kuratierte Startliste aus `memecal/config.py`.
+
+**Kein Daemon.** Gepollt wird beim Öffnen eines Türchens. Auf dem Request-Pfad
+wird nur das eine gebrauchte Video beschafft (Kandidaten werden schubweise
+parallel geprüft); die Reserve füllt ein Background-Task *nach* der Antwort
+auf. Kalter Pool: ~4 s. Danach: sofort, ohne Netzwerk.
+
+**Kategorien.** Jeder Kanal gehört zu einer Kategorie (Memes, Katzen, Hunde),
+jeder User wählt unter `/einstellungen` eine oder mehrere aus.
+
+**Sequenz.** Gepinnt wird pro (Variante, Index), wobei die Variante die
+sortierte Kategorie-Auswahl ist. Wer dieselbe Auswahl hat, teilt dieselbe
+Sequenz und ist nur zeitversetzt; andere Auswahl heißt eigene Sequenz.
+Wiederholungsfreiheit gilt innerhalb einer Variante. Ein geöffnetes Türchen
+merkt sich seine Variante und ändert sich auch dann nicht mehr, wenn der User
+später umstellt.
+
+**Arbeitstage** sind Mo–Fr abzüglich der Feiertage in Baden-Württemberg
+(`MEMECAL_HOLIDAY_SUBDIV`).
+
+## Konfiguration
+
+Alles über Env mit Prefix `MEMECAL_`, siehe `.env.example` und
+`memecal/config.py`. Die wichtigsten:
+
+| Variable | Default | Bedeutung |
+|---|---|---|
+| `MEMECAL_ADMIN_PASSWORD` | — | legt beim Start den Admin an (nur falls nicht vorhanden) |
+| `MEMECAL_END_DATE` | `2027-03-08` | Standard-Enddatum für User ohne eigenes; im Admin-UI überschreibbar, jeder User kann unter `/einstellungen` sein eigenes setzen |
+| `MEMECAL_DEFAULT_CHANNELS` | kuratierte Liste | Startliste, kommasepariert, Einträge `kanal` oder `kanal:kategorie` |
+| `MEMECAL_MAX_VIDEO_SECONDS` | `90` | längere Videos landen nicht im Pool |
+| `MEMECAL_HOLIDAY_SUBDIV` | `BW` | Bundesland für die Feiertage |
+| `MEMECAL_DATA_DIR` | `./data` | SQLite und Session-Key |
+
+## Tests
+
+```sh
+nix develop --command pytest              # alles
+nix develop --command pytest -m "not network"
+```
+
+`tests/test_youtube_live.py` prüft die echten YouTube-Endpunkte und braucht
+Netz — im Nix-Build ist die Datei deshalb ausgeschlossen.

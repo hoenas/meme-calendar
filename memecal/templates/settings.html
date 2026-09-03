@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen — Meme-Kalender{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Was willst du sehen?</h1>
+  {% if message %}<p class="ok">{{ message }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <form method="post" action="/einstellungen">
+    {% for key, label in categories.items() %}
+      <label class="check">
+        <input type="checkbox" name="category" value="{{ key }}"
+               {% if key in chosen %}checked{% endif %}>
+        <span>{{ label }}</span>
+      </label>
+    {% endfor %}
+
+    <label>Enddatum
+      <input type="date" name="end_date" value="{{ end_date.isoformat() }}">
+    </label>
+    <p class="meta">
+      {% if has_custom_end_date %}
+        Eigenes Enddatum. Feld leeren und speichern, um wieder das
+        Standard-Enddatum zu übernehmen.
+      {% else %}
+        Aktuell das Standard-Enddatum.
+      {% endif %}
+    </p>
+
+    <button type="submit" class="primary">Speichern</button>
+  </form>
+
+  <p class="meta">
+    Gilt ab dem nächsten Türchen. Bereits geöffnete Türchen behalten ihr
+    Video — die ändern sich nicht mehr.
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Meme-Kalender{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+  <script src="{{ url_for('static', path='/htmx.min.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">🎁 Meme-Kalender</a>
+    {% if user %}
+      <nav>
+        <span class="who">{{ user.username }}</span>
+        <a href="/einstellungen">Einstellungen</a>
+        {% if user.is_admin %}<a href="/admin">Admin</a>{% endif %}
+        <form method="post" action="/logout" class="inline">
+          <button type="submit" class="linkish">Abmelden</button>
+        </form>
+      </nav>
+    {% endif %}
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+
+  <script>
+    function closeModal() {
+      const m = document.getElementById('modal');
+      m.hidden = true;
+      document.getElementById('modal-body').innerHTML = '';
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+    document.body.addEventListener('htmx:afterSwap', e => {
+      if (e.detail.target.id === 'modal-body') {
+        document.getElementById('modal').hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>

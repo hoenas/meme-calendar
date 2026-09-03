@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="intro">
+  <h1>Dein Meme-Kalender</h1>
+  {% if total %}
+    <p class="meta">
+      {{ unlocked }} von {{ total }} Türchen offen &middot;
+      läuft bis {{ end_date.strftime('%d.%m.%Y') }} &middot;
+      <a href="/einstellungen">{{ selection }}</a>
+    </p>
+  {% endif %}
+</section>
+
+{% if not doors %}
+  <p class="empty">
+    Für dich sind noch keine Türchen angelegt. Falls das Enddatum schon
+    vorbei ist, muss der Admin es verlängern.
+  </p>
+{% else %}
+  <div class="grid" style="--cols: {{ columns }}">
+    {% for door in doors %}
+      {% if door.opened %}
+        <button class="door opened"
+                hx-get="/door/{{ door.index }}"
+                hx-target="#modal-body"
+                title="Türchen {{ door.index }} — {{ door.day.strftime('%d.%m.%Y') }}">
+          <img src="{{ door.thumbnail_url }}" alt="" loading="lazy">
+          <span class="num">{{ door.index }}</span>
+          <span class="spinner"></span>
+        </button>
+      {% elif door.unlocked %}
+        <button class="door available"
+                hx-get="/door/{{ door.index }}"
+                hx-target="#modal-body"
+                title="Türchen {{ door.index }} öffnen">
+          <span class="symbol">🎁</span>
+          <span class="num">{{ door.index }}</span>
+          <span class="spinner"></span>
+        </button>
+      {% else %}
+        <div class="door locked"
+             title="Öffnet am {{ door.day.strftime('%d.%m.%Y') }}">
+          <span class="symbol">🔒</span>
+          <span class="num">{{ door.index }}</span>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

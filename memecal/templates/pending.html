@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Warten auf Freischaltung{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Fast geschafft</h1>
+  <p>
+    Hallo {{ user.username }}! Dein Account existiert, muss aber noch vom
+    Admin freigeschaltet werden.
+  </p>
+  <p class="meta">
+    Dein Kalender startet erst an dem Tag, an dem du dich nach der
+    Freischaltung zum ersten Mal anmeldest — es geht dir also nichts verloren.
+  </p>
+  <form method="post" action="/logout">
+    <button type="submit" class="primary">Abmelden</button>
+  </form>
+</div>
+{% endblock %}

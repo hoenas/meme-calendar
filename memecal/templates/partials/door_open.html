@@ -1,0 +1,17 @@
+<div class="meme">
+  <button class="close" onclick="closeModal()" aria-label="Schließen">×</button>
+  <div class="video">
+    <iframe src="{{ meme.embed_url }}"
+            title="{{ meme.title }}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen></iframe>
+  </div>
+  <h2>Türchen {{ index }}</h2>
+  <p class="meme-title">{{ meme.title }}</p>
+  <p class="meta">
+    {% if meme.duration %}{{ meme.duration }} Sekunden &middot; {% endif %}
+    <a href="{{ meme.watch_url }}" target="_blank" rel="noopener">auf YouTube öffnen</a>
+  </p>
+</div>

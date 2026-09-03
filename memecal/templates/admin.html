@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Admin — Meme-Kalender{% endblock %}
+
+{% block content %}
+<h1>Verwaltung</h1>
+{% if message %}<p class="ok">{{ message }}</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<section class="card">
+  <h2>Benutzer</h2>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Status</th><th>Sieht</th><th>Kalenderstart</th><th>Kalenderende</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.username }}{% if u.is_admin %} <span class="tag">Admin</span>{% endif %}</td>
+        <td>{{ "freigeschaltet" if u.is_approved else "wartet" }}</td>
+        <td>
+          {%- for key in u.categories.split(",") -%}
+            {{ categories.get(key, key) }}{% if not loop.last %}, {% endif %}
+          {%- endfor -%}
+        </td>
+        <td>{{ u.started_on.strftime('%d.%m.%Y') if u.started_on else "—" }}</td>
+        <td>
+          {{ end_dates[u.id].strftime('%d.%m.%Y') }}
+          {%- if u.end_date %} <span class="tag">eigenes</span>{% endif -%}
+        </td>
+        <td>
+          {% if u.is_approved %}
+            <form method="post" action="/admin/users/{{ u.id }}/revoke" class="inline">
+              <button type="submit">Sperren</button>
+            </form>
+          {% else %}
+            <form method="post" action="/admin/users/{{ u.id }}/approve" class="inline">
+              <button type="submit" class="primary">Freischalten</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Kanäle</h2>
+  <p class="meta">
+    Handle (<code>@name</code>), Kanal-URL oder <code>channel_id</code>
+    (<code>UC…</code>). Handles werden einmalig aufgelöst.
+  </p>
+  <form method="post" action="/admin/channels" class="row">
+    <input name="ref" placeholder="@meinmemekanal" required>
+    <select name="category">
+      {% for key, label in categories.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="primary">Hinzufügen</button>
+  </form>
+
+  {% if channels %}
+    <table>
+      <thead><tr><th>Kanal</th><th>Kategorie</th><th>channel_id</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for c in channels %}
+        <tr>
+          <td>{{ c.title or c.ref }}</td>
+          <td>{{ categories.get(c.category, c.category) }}</td>
+          <td><code>{{ c.channel_id }}</code></td>
+          <td>{{ "aktiv" if c.enabled else "aus" }}</td>
+          <td>
+            <form method="post" action="/admin/channels/{{ c.id }}/toggle" class="inline">
+              <button type="submit">{{ "Deaktivieren" if c.enabled else "Aktivieren" }}</button>
+            </form>
+            <form method="post" action="/admin/channels/{{ c.id }}/delete" class="inline">
+              <button type="submit" class="danger">Löschen</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">
+      Noch keine Kanäle. Ohne Kanäle lässt sich kein Türchen öffnen.
+    </p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Video-Pool</h2>
+  <p class="meta">
+    {% for key, label in categories.items() %}
+      {{ label }}: {{ pool.get(key, 0) }}{% if not loop.last %} &middot; {% endif %}
+    {% endfor %}
+  </p>
+  <form method="post" action="/admin/pool/refill" class="inline">
+    <button type="submit">Jetzt nachfüllen</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Standard-Enddatum</h2>
+  <p class="meta">
+    Gilt für alle User ohne eigenes Enddatum (Spalte "Kalenderende" oben).
+    Jeder kann sein eigenes unter /einstellungen setzen.
+  </p>
+  <form method="post" action="/admin/settings" class="row">
+    <input type="date" name="end_date" value="{{ end_date.isoformat() }}" required>
+    <button type="submit" class="primary">Speichern</button>
+  </form>
+</section>
+{% endblock %}
