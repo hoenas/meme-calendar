@@ -44,9 +44,9 @@ from .calendar_view import (
     effective_end_date_for,
 )
 from .config import CATEGORIES, DEFAULT_CATEGORY, settings
+from .days import unlocked_count
 from .db import get_session, init_db, session_scope
 from .models import Channel, User, UserDoor
-from .workdays import unlocked_count
 
 log = logging.getLogger(__name__)
 
@@ -242,9 +242,7 @@ def calendar(
     ensure_started(session, user, today())
     end = effective_end_date_for(session, user)
     doors = build_doors(session, user, today(), end)
-    unlocked = unlocked_count(
-        user.started_on, today(), end, settings.holiday_subdiv
-    )
+    unlocked = unlocked_count(user.started_on, today(), end)
     return render(
         request,
         "calendar.html",
@@ -334,9 +332,7 @@ def open_door(
     if index < 1 or index > total:
         raise HTTPException(status_code=404, detail="Dieses Türchen gibt es nicht.")
 
-    unlocked = unlocked_count(
-        user.started_on, today(), end, settings.holiday_subdiv
-    )
+    unlocked = unlocked_count(user.started_on, today(), end)
     if index > unlocked:
         return render(
             request, "partials/door_locked.html", status_code=403, index=index

@@ -23,9 +23,6 @@ services:
       # Jeder User kann sein eigenes unter /einstellungen setzen.
       MEMECAL_END_DATE: "2027-03-08"
 
-      # Bundesland für die Feiertagsberechnung.
-      MEMECAL_HOLIDAY_SUBDIV: BW
-
       # Optional: legt beim Start einen festen Admin an. Ohne das wird der
       # erste registrierte Account automatisch Admin (siehe README) - für
       # die meisten Deployments reicht das, ohne .env-Pflege.

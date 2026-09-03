@@ -58,9 +58,6 @@ class Settings(BaseSettings):
     #: eingestellt haben (absolutes Datum, siehe AGENDS.md).
     end_date: date = date(2027, 3, 8)
 
-    #: Bundesland für die Feiertagsberechnung.
-    holiday_subdiv: str = "BW"
-
     #: Videos länger als das werden nicht in den Pool aufgenommen.
     max_video_seconds: int = 90
 

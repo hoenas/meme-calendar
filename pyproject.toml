@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "memecal"
 version = "0.1.0"
-description = "Meme-Kalender: ein deutsches Meme pro Arbeitstag"
+description = "Meme-Kalender: ein deutsches Meme pro Tag"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
@@ -16,7 +16,6 @@ dependencies = [
     "argon2-cffi",
     "itsdangerous",
     "pydantic-settings",
-    "holidays",
     "python-multipart",
 ]
 

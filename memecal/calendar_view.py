@@ -10,9 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import settings
+from .days import days_between, total_doors, unlocked_count
 from .models import User, UserDoor
 from .service import get_setting
-from .workdays import total_doors, unlocked_count, workdays_between
 
 
 @dataclass(frozen=True)
@@ -58,13 +58,11 @@ def build_doors(
     if user.started_on is None:
         return []
 
-    days = workdays_between(user.started_on, end, settings.holiday_subdiv)
+    days = days_between(user.started_on, end)
     if not days:
         return []
 
-    unlocked = unlocked_count(
-        user.started_on, today, end, settings.holiday_subdiv
-    )
+    unlocked = unlocked_count(user.started_on, today, end)
     opened_rows = session.scalars(
         select(UserDoor).where(UserDoor.user_id == user.id)
     ).all()
@@ -95,4 +93,4 @@ def build_doors(
 def door_count(user: User, end: date) -> int:
     if user.started_on is None:
         return 0
-    return total_doors(user.started_on, end, settings.holiday_subdiv)
+    return total_doors(user.started_on, end)

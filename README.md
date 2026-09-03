@@ -1,6 +1,6 @@
 # Meme-Kalender
 
-Ein Adventskalender für Arbeitstage: pro Arbeitstag ein deutsches Meme-Short.
+Ein Adventskalender: pro Tag ein deutsches Meme-Short.
 Die Anforderungen und alle getroffenen Entscheidungen stehen in
 [AGENDS.md](AGENDS.md).
 
@@ -74,9 +74,6 @@ Wiederholungsfreiheit gilt innerhalb einer Variante. Ein geöffnetes Türchen
 merkt sich seine Variante und ändert sich auch dann nicht mehr, wenn der User
 später umstellt.
 
-**Arbeitstage** sind Mo–Fr abzüglich der Feiertage in Baden-Württemberg
-(`MEMECAL_HOLIDAY_SUBDIV`).
-
 ## Konfiguration
 
 Alles über Env mit Prefix `MEMECAL_`, siehe `.env.example` und
@@ -88,7 +85,6 @@ Alles über Env mit Prefix `MEMECAL_`, siehe `.env.example` und
 | `MEMECAL_END_DATE` | `2027-03-08` | Standard-Enddatum für User ohne eigenes; im Admin-UI überschreibbar, jeder User kann unter `/einstellungen` sein eigenes setzen |
 | `MEMECAL_DEFAULT_CHANNELS` | kuratierte Liste | Startliste, kommasepariert, Einträge `kanal` oder `kanal:kategorie` |
 | `MEMECAL_MAX_VIDEO_SECONDS` | `90` | längere Videos landen nicht im Pool |
-| `MEMECAL_HOLIDAY_SUBDIV` | `BW` | Bundesland für die Feiertage |
 | `MEMECAL_DATA_DIR` | `./data` | SQLite und Session-Key |
 
 ## Tests

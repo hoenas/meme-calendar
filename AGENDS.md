@@ -1,6 +1,6 @@
 # Meme-Kalender
 
-Diese App soll für jeden Arbeitstag bis zu einem bestimmten Datum ein deutsches Meme abspielen.
+Diese App soll für jeden Tag bis zu einem bestimmten Datum ein deutsches Meme abspielen.
 
 * Memes
     * Finde eine vernünftige Quelle für Memes
@@ -97,8 +97,8 @@ Schreibe alle Änderungen an den Requirements in dieses File.
       Der konfigurierte App-Default ist **08.03.2027** (`settings.end_date`).
       Wer später startet oder ein früheres Enddatum wählt, hat weniger
       Türchen.
-    * Arbeitstag = Mo–Fr abzüglich der gesetzlichen Feiertage in
-      **Baden-Württemberg**.
+    * Ein Türchen pro Kalendertag (Update, siehe unten) — nicht mehr nur
+      Werktage.
     * "Nur Türchen bis zum aktuellen Tag" gilt relativ zum individuellen
       Startdatum des jeweiligen Users.
 * **Inhalt ist pro User wählbar**
@@ -159,3 +159,18 @@ beim allerersten Start übernommen; danach zählt die DB bzw. das Admin-UI.
 Die Kategorien haben das DB-Schema geändert (`variant` in `door_assignments`
 und `user_doors`, `category` in `channels`/`videos`). Es gibt keine
 Migrationen — eine vorhandene Entwicklungs-Datenbank muss gelöscht werden.
+
+## Entscheidungen (2026-09-03, Nachtrag)
+
+* **Türchen jetzt pro Kalendertag, nicht mehr pro Werktag** (Update): jeder
+  Tag zwischen Start- und Enddatum eines Users bekommt ein Türchen,
+  Wochenenden und Feiertage zählen mit. Vorher wurden nur Mo–Fr abzüglich
+  der gesetzlichen Feiertage in Baden-Württemberg gezählt.
+    * `memecal/workdays.py` (Feiertagslogik über das `holidays`-Paket) ist
+      entfallen, ersetzt durch `memecal/days.py` (reine Datumsarithmetik,
+      keine externe Abhängigkeit mehr).
+    * Damit entfällt auch `MEMECAL_HOLIDAY_SUBDIV`/`settings.holiday_subdiv`
+      vollständig — es gibt keine Feiertagsberechnung mehr, die ein
+      Bundesland bräuchte.
+    * Darstellung bleibt wie zuvor: Türchen zeigen weiterhin nur ihre
+      Nummer, kein Datum und kein Countdown auf dem Türchen selbst.

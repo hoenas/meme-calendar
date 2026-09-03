@@ -512,7 +512,7 @@ def test_ungueltiges_enddatum_wird_abgelehnt(client):
 
 def test_eigenes_enddatum_wirkt_auf_tuerchenzahl(client, fake_youtube):
     """Ein kürzeres persönliches Enddatum lässt weniger Türchen zu."""
-    from memecal.workdays import total_doors
+    from memecal.days import total_doors
 
     start = date.today()
     end = start + timedelta(days=13)  # knapp zwei Wochen, unabhängig vom Wochentag

@@ -1,5 +1,5 @@
 {
-  description = "Meme-Kalender: ein deutsches Meme pro Arbeitstag";
+  description = "Meme-Kalender: ein deutsches Meme pro Tag";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -21,7 +21,6 @@
           argon2-cffi
           itsdangerous
           pydantic-settings
-          holidays
           python-multipart
         ];
 

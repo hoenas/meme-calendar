@@ -1,32 +1,10 @@
 from datetime import date
 
-from memecal.workdays import (
-    door_date,
-    is_workday,
-    total_doors,
-    unlocked_count,
-    workdays_between,
-)
+from memecal.days import days_between, door_date, total_doors, unlocked_count
 
 
-def test_wochenende_ist_kein_arbeitstag():
-    assert not is_workday(date(2026, 9, 5))  # Samstag
-    assert not is_workday(date(2026, 9, 6))  # Sonntag
-    assert is_workday(date(2026, 9, 7))      # Montag
-
-
-def test_bw_feiertage_zaehlen_nicht():
-    # Heilige Drei Könige ist in BW Feiertag, in NRW nicht.
-    assert not is_workday(date(2027, 1, 6), subdiv="BW")
-    assert is_workday(date(2027, 1, 6), subdiv="NW")
-
-
-def test_tag_der_deutschen_einheit_ueberall():
-    assert not is_workday(date(2025, 10, 3), subdiv="BW")
-
-
-def test_workdays_between_inklusive_grenzen():
-    days = workdays_between(date(2026, 9, 7), date(2026, 9, 11))
+def test_days_between_inklusive_grenzen():
+    days = days_between(date(2026, 9, 7), date(2026, 9, 11))
     assert days == [
         date(2026, 9, 7),
         date(2026, 9, 8),
@@ -36,8 +14,16 @@ def test_workdays_between_inklusive_grenzen():
     ]
 
 
-def test_workdays_between_leer_wenn_ende_vor_start():
-    assert workdays_between(date(2026, 9, 10), date(2026, 9, 1)) == []
+def test_days_between_zaehlt_wochenende_mit():
+    # Montag bis Sonntag: alle 7 Tage, nicht nur die 5 Werktage.
+    days = days_between(date(2026, 9, 7), date(2026, 9, 13))
+    assert len(days) == 7
+    assert date(2026, 9, 12) in days  # Samstag
+    assert date(2026, 9, 13) in days  # Sonntag
+
+
+def test_days_between_leer_wenn_ende_vor_start():
+    assert days_between(date(2026, 9, 10), date(2026, 9, 1)) == []
 
 
 def test_unlocked_count_waechst_mit_den_tagen():
@@ -45,8 +31,8 @@ def test_unlocked_count_waechst_mit_den_tagen():
     end = date(2026, 9, 30)
     assert unlocked_count(start, start, end) == 1
     assert unlocked_count(start, date(2026, 9, 11), end) == 5
-    # Wochenende schaltet nichts frei.
-    assert unlocked_count(start, date(2026, 9, 13), end) == 5
+    # Anders als bei Werktagen: das Wochenende schaltet weiter frei.
+    assert unlocked_count(start, date(2026, 9, 13), end) == 7
 
 
 def test_unlocked_count_deckelt_auf_gesamtzahl():
