@@ -92,6 +92,28 @@ def _is_rate_limited(resp: httpx.Response) -> bool:
     return resp.status_code == 429 or "/sorry/" in str(resp.url)
 
 
+#: Textmarker, die verraten, warum eine Watch-Page ohne ``lengthSeconds``
+#: durchkam - meist eine Bot-Check-Seite statt der echten Player-Daten.
+#: Reihenfolge ist Priorität: der erste Treffer gewinnt.
+_MISSING_META_MARKERS: list[tuple[bytes, str]] = [
+    (b"Sign in to confirm", 'Bot-Check-Seite ("Sign in to confirm ...")'),
+    (b"unusual traffic", 'Bot-Check-Seite ("unusual traffic")'),
+    (b"recaptcha", "reCAPTCHA im Inhalt"),
+    (b"Video unavailable", "Video als nicht verfügbar markiert"),
+    (b"confirm your age", "Altersbestätigung verlangt"),
+]
+
+
+def _diagnose_missing_length(buf: bytes) -> str:
+    """Grobe Heuristik, warum eine 200er-Watch-Page kein lengthSeconds hatte."""
+    for needle, label in _MISSING_META_MARKERS:
+        if needle in buf:
+            return label
+    if b"ytInitialPlayerResponse" not in buf:
+        return "kein ytInitialPlayerResponse im HTML - untypische Seite"
+    return "ytInitialPlayerResponse vorhanden, aber ohne lengthSeconds"
+
+
 def _client() -> httpx.Client:
     return httpx.Client(
         headers=HEADERS, timeout=DEFAULT_TIMEOUT, follow_redirects=True
@@ -277,9 +299,10 @@ def fetch_video_meta(
             # echten "Video unbrauchbar" zu unterscheiden.
             log.warning(
                 "Watch-Page für %s gelesen (%d Bytes), aber lengthSeconds nicht "
-                "gefunden",
+                "gefunden - %s",
                 video_id,
                 len(buf),
+                _diagnose_missing_length(bytes(buf)),
             )
             return None
         # Fehlt das Flag, gehen wir von einbettbar aus - der iframe zeigt im
