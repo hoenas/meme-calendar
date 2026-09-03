@@ -1,12 +1,19 @@
-# Das Image wird aus dem Flake gebaut:
+# Zwei Wege zum selben Tag:
 #
-#   nix build .#dockerImage
-#   docker load < result
-#   docker compose up -d
+#   docker compose up -d --build             # baut hier aus dem Dockerfile
+#   nix build .#dockerImage && docker load < result && docker compose up -d
 #
+# Der Nix-Weg liefert ein gepinntes, reproduzierbares Image und ist der
+# bevorzugte, wo Nix verfügbar ist; der Docker-Weg tauscht Reproduzierbarkeit
+# gegen "baut überall, auch ohne Nix auf dem Server". Ein einfaches
+# `docker compose up -d` ohne `--build` nimmt einfach das schon getaggte
+# Image, egal von welchem der beiden Wege es stammt.
 services:
   memecal:
     image: meme-calendar:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: meme-calendar
     restart: unless-stopped
     # Nur lokal binden - TLS und Auth-Vorschaltung macht der Reverse-Proxy

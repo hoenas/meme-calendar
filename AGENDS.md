@@ -194,3 +194,25 @@ Migrationen — eine vorhandene Entwicklungs-Datenbank muss gelöscht werden.
       wie im Kalender-Raster).
     * Favorisierte, bereits geöffnete Türchen zeigen im Kalender-Raster
       zusätzlich ein kleines Herz-Badge.
+
+## Entscheidungen (2026-09-03, dritter Nachtrag)
+
+* **Zweiter Build-Weg ohne Nix** hinzugefügt (`Dockerfile`), nach demselben
+  Muster wie im Repo `snapfit-rush-hour-tracker`: Grund war ein
+  `docker compose ... up -d --build` auf dem Server, der fehlschlug, weil
+  dort kein Nix installiert ist und `docker-compose.yml` keinen `build:`-
+  Kontext hatte — Compose versuchte stattdessen, `meme-calendar:latest` von
+  Docker Hub zu **pullen**.
+    * `docker-compose.yml` bekommt zusätzlich zum `image:` einen `build:`-
+      Block auf das neue `Dockerfile`. Beide Wege landen auf demselben Tag
+      `meme-calendar:latest`; ein einfaches `docker compose up -d` ohne
+      `--build` nimmt einfach das, was schon getaggt ist.
+    * Multi-Stage-Build mit `python:3.13-slim`, Abhängigkeiten kommen aus
+      `pyproject.toml` (keine zweite, gepflegte Liste). `tzdata` und
+      `ca-certificates` per `apt`, da das schlanke Basisimage beides nicht
+      mitbringt — ohne `tzdata` liefe der Container auf UTC und der
+      Tageswechsel (Freischalten der Türchen) verschöbe sich um zwei
+      Stunden, genau wie beim Nix-Image.
+    * Der Nix-Weg bleibt der bevorzugte, wo Nix verfügbar ist (gepinnt,
+      reproduzierbar); der Docker-Weg trägt die Fähigkeit, auch ohne Nix zu
+      bauen.

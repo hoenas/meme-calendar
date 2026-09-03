@@ -27,19 +27,26 @@ Variable gesetzt, entfällt der Auto-Admin bei der Registrierung.
 
 ## Deployment (Docker)
 
+Zwei Wege zum selben Image-Tag `meme-calendar:latest`:
+
 ```sh
 cp .env.example .env
+
+# Mit Nix (gepinnt, reproduzierbar):
 nix build .#dockerImage
 docker load < result
 docker compose up -d
+
+# Ohne Nix, nur mit Docker (z.B. auf einem Server ohne Nix-Installation):
+docker compose up -d --build
 ```
 
 `MEMECAL_ADMIN_PASSWORD` in der `.env` ist optional (siehe oben) — ohne sie
 wird einfach der erste, der sich registriert, zum Admin.
 
 Der Container lauscht auf `127.0.0.1:8000`; TLS und die Domain
-`zitronas.deutsches` macht der Reverse-Proxy davor. SQLite liegt im Volume
-`memecal-data` unter `/data`.
+`memecal.zitronas.de` macht der Reverse-Proxy davor (siehe `caddy-config`).
+SQLite liegt im Volume `memecal-data` unter `/data`.
 
 ## Wie es funktioniert
 
