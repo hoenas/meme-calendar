@@ -18,8 +18,18 @@ from memecal.models import Base, Channel, User, Video
 def fresh_db():
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    # Der Rate-Limit-Cooldown ist Modul-Zustand und würde sonst aus einem
+    # Drosselungs-Test in die nächsten durchsickern.
+    service._rate_limited_until = 0.0
     yield
     Base.metadata.drop_all(engine)
+
+
+@pytest.fixture(autouse=True)
+def _no_batch_delay(monkeypatch):
+    """Tests laufen gegen fake_youtube ohne echte Drosselungsgefahr - die
+    Pause zwischen Batches würde sie nur unnötig verlangsamen."""
+    monkeypatch.setattr(service, "_BATCH_DELAY_SECONDS", 0)
 
 
 @pytest.fixture
@@ -303,6 +313,29 @@ def test_request_pfad_holt_nur_ein_video(client, monkeypatch, fake_youtube):
 
     # Ein Batch parallel ist ok, die volle Reserve wäre es nicht.
     assert len(checked) <= service._MAX_PARALLEL_CHECKS
+
+
+def test_tuerchen_oeffnen_holt_keine_reserve_nach(client, monkeypatch, fake_youtube):
+    """YouTube wird nur für das geöffnete Türchen gefragt, nicht auf Vorrat."""
+    _add_channel()
+    checked: list[str] = []
+
+    def counting_meta(vid, client=None):
+        checked.append(vid)
+        return youtube.VideoMeta(duration=30, embeddable=True)
+
+    monkeypatch.setattr(service.youtube, "fetch_video_meta", counting_meta)
+    _make_user("jonas", started_on=date.today())
+    _login(client, "jonas")
+
+    resp = client.get("/door/1")
+    assert resp.status_code == 200
+
+    # Kein Background-Task legt zusätzliche Videos auf Vorrat an.
+    assert len(checked) <= service._MAX_PARALLEL_CHECKS
+    with SessionLocal() as session:
+        # Das eine geholte Video ist direkt verplant, nichts liegt ungenutzt herum.
+        assert service.unused_video_count(session, "memes") == 0
 
 
 def test_memes_wiederholen_sich_nicht(client, fake_youtube):

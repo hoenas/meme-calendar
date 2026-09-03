@@ -10,7 +10,6 @@ from typing import Annotated
 from urllib.parse import quote, urlencode
 
 from fastapi import (
-    BackgroundTasks,
     Depends,
     FastAPI,
     Form,
@@ -323,7 +322,6 @@ def update_user_settings(
 def open_door(
     index: int,
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(require_user),
     session: Session = Depends(get_session),
 ):
@@ -363,8 +361,6 @@ def open_door(
                 )
             )
 
-    # Erst antworten, dann nachlegen - der User wartet nicht auf die Reserve.
-    background.add_task(service.top_up_reserve, variant)
     return render(
         request,
         "partials/door_open.html",

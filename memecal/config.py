@@ -61,8 +61,10 @@ class Settings(BaseSettings):
     #: Videos länger als das werden nicht in den Pool aufgenommen.
     max_video_seconds: int = 90
 
-    #: So viele ungenutzte Videos versucht die App vorrätig zu halten.
-    reserve_target: int = 10
+    #: So viele ungenutzte Videos versucht die App vorrätig zu halten. Klein
+    #: gehalten, damit ein Auffüllen nicht gleich zehn Watch-Page-Requests
+    #: auslöst - bei ~2 Usern reicht das locker als Puffer.
+    reserve_target: int = 5
 
     #: Startliste, wird beim ersten Start in die DB übernommen. Einträge sind
     #: "kanal" oder "kanal:kategorie"; Handles (@name) und channel_ids (UC...)

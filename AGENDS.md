@@ -54,12 +54,9 @@ Schreibe alle Änderungen an den Requirements in dieses File.
           die Zuordnung **dauerhaft in SQLite gepinnt** und ausgeliefert.
           Ein einmal geöffnetes Türchen zeigt damit für immer dasselbe Meme.
         * Auf dem Request-Pfad wird **nur das eine gebrauchte Video**
-          beschafft; Kandidaten werden dabei schubweise parallel geprüft.
-          Die Reserve füllt ein Background-Task **nach** der Antwort auf,
-          damit niemand darauf wartet. Gemessen: kalter Pool ~4 s, danach
-          0 s ohne Netzwerkzugriff.
-          (Erste Fassung füllte die Reserve im Request-Pfad und seriell —
-          das dauerte 41 s pro Klick.)
+          beschafft; Kandidaten werden dabei in kleinen Batches geprüft, mit
+          Pause dazwischen (Update, siehe unten — kein Background-Task und
+          keine Reserve mehr).
     * Das 15-Videos-pro-Kanal-Limit des Feeds ist dadurch unkritisch: pro
       Kalendertag wird nur ein einziges neues Video gebraucht, und der Feed
       liefert über die Zeit laufend Nachschub.
@@ -216,3 +213,40 @@ Migrationen — eine vorhandene Entwicklungs-Datenbank muss gelöscht werden.
     * Der Nix-Weg bleibt der bevorzugte, wo Nix verfügbar ist (gepinnt,
       reproduzierbar); der Docker-Weg trägt die Fähigkeit, auch ohne Nix zu
       bauen.
+
+## Entscheidungen (2026-09-03, vierter Nachtrag)
+
+* **YouTube-Requests deutlich zurückgefahren** (Update): der Betrieb hat
+  YouTube schnell zur Drosselung gebracht. Ursache war vor allem der
+  Background-Task, der nach fast jedem Türchen-Klick die Reserve auf
+  `reserve_target` (10, zuletzt 5) ungenutzte Videos aufzufüllen versuchte —
+  das hat die tatsächlich gebrauchten Requests um ein Vielfaches multipliziert.
+    * **Reserve/Background-Task komplett entfernt** (`service.top_up_reserve`,
+      der `background.add_task(...)`-Aufruf in `open_door`). YouTube wird
+      jetzt ausschließlich dann gefragt, wenn ein Türchen tatsächlich
+      geöffnet wird, und dabei nur für das eine gebrauchte Video — kein
+      Vorrat auf Vorrat mehr. Bewusster Trade-off: das Öffnen eines noch
+      unbelegten Türchens kann dadurch spürbar länger dauern, das ist in
+      Ordnung.
+    * Der manuelle Pool-Refill im Admin-UI (`POST /admin/pool/refill`,
+      `service.refill_pool` mit `settings.reserve_target`) bleibt bestehen —
+      der ist explizit vom Admin ausgelöst, kein automatischer Multiplikator.
+    * **Parallelität der Watch-Page-Checks gesenkt**: `_MAX_PARALLEL_CHECKS`
+      von 8 auf 3, plus `_BATCH_DELAY_SECONDS` (1,5 s) Pause zwischen zwei
+      Batches — acht gleichzeitige Verbindungen ohne Pause sah für YouTube
+      offenbar nach Bot-Verhalten aus.
+    * **Cooldown nach einer Drosselung**: Ein 429 setzt einen
+      Modul-Zustand (`service._rate_limited_until`), der für
+      `_RATE_LIMIT_COOLDOWN_SECONDS` (10 Minuten) jeden weiteren
+      YouTube-Request unterbindet — auch den Feed-Abruf. Ohne das würde
+      jeder weitere Türchen-Klick während der Sperre sie nur verlängern,
+      statt sie auslaufen zu lassen. Der Zustand ist In-Memory (kein DB-
+      Eintrag) und funktioniert deshalb nur korrekt, solange die App als
+      **ein** Prozess läuft — bei `uvicorn.run(...)` ohne `workers=` (siehe
+      `__main__.py`) und in der Docker-Deployment (ein Container) ist das
+      gegeben. Liefe die App mit mehreren Worker-Prozessen oder mehreren
+      Replikas, bräuchte der Cooldown einen geteilten Speicher (z.B. eine
+      Spalte in SQLite) statt eines Python-Moduls.
+    * `settings.reserve_target` von 10 auf 5 gesenkt — wirkt jetzt nur noch
+      auf den manuellen Admin-Refill, kleiner gehalten, damit ein Klick auf
+      den Button nicht gleich zehn Watch-Page-Requests auslöst.

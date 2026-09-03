@@ -66,10 +66,16 @@ einem CAPTCHA-Redirect. Das wird als eigener Fehler behandelt, nicht als
 läuft alles über den Feed. `MEMECAL_DEFAULT_CHANNELS` überschreibt die
 kuratierte Startliste aus `memecal/config.py`.
 
-**Kein Daemon.** Gepollt wird beim Öffnen eines Türchens. Auf dem Request-Pfad
-wird nur das eine gebrauchte Video beschafft (Kandidaten werden schubweise
-parallel geprüft); die Reserve füllt ein Background-Task *nach* der Antwort
-auf. Kalter Pool: ~4 s. Danach: sofort, ohne Netzwerk.
+**Kein Daemon.** Gepollt wird ausschließlich beim Öffnen eines Türchens, und
+dabei auch nur das eine gebrauchte Video - keine Reserve, kein Vorrat auf
+Vorrat. Kandidaten werden in kleinen Batches (max. 3 gleichzeitig, siehe
+`service._MAX_PARALLEL_CHECKS`) mit Pause dazwischen geprüft, bis einer passt.
+Das hält Türchen-Öffnen bewusst langsamer, dafür bleibt YouTube gegenüber
+zurückhaltend: Kalter Pool bis zu ein paar Sekunden, danach sofort, ohne
+Netzwerk. Wird YouTube trotzdem einmal knapp (HTTP 429), pausiert die App für
+10 Minuten jeden weiteren Versuch, statt die Drosselung durch Nachfragen zu
+verlängern (`service._RATE_LIMIT_COOLDOWN_SECONDS`). Ein Admin kann den Pool
+manuell auffüllen (`/admin`, Pool-Button, `POST /admin/pool/refill`).
 
 **Kategorien.** Jeder Kanal gehört zu einer Kategorie (Memes, Katzen, Hunde),
 jeder User wählt unter `/einstellungen` eine oder mehrere aus.

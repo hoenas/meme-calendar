@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -23,8 +25,32 @@ from .models import Channel, DoorAssignment, Setting, Video
 
 log = logging.getLogger(__name__)
 
-#: Wie viele Watch-Pages gleichzeitig geprüft werden.
-_MAX_PARALLEL_CHECKS = 8
+#: Wie viele Watch-Pages gleichzeitig geprüft werden. War mal 8 - das sah für
+#: YouTube offenbar nach Bot-Verhalten aus und führte schnell zur Drosselung.
+_MAX_PARALLEL_CHECKS = 3
+
+#: Pause zwischen zwei Batches, damit die Watch-Page-Abrufe nicht in einer
+#: einzigen Salve rausgehen.
+_BATCH_DELAY_SECONDS = 1.5
+
+#: Nach einer Drosselung erstmal eine Weile gar nicht mehr anklopfen - sonst
+#: verlängert jeder weitere Versuch (z.B. vom nächsten Türchen-Klick) nur die
+#: Sperre, statt sie ausklingen zu lassen.
+_RATE_LIMIT_COOLDOWN_SECONDS = 10 * 60
+
+_rate_limit_lock = threading.Lock()
+_rate_limited_until: float = 0.0
+
+
+def _note_rate_limited() -> None:
+    global _rate_limited_until
+    with _rate_limit_lock:
+        _rate_limited_until = time.monotonic() + _RATE_LIMIT_COOLDOWN_SECONDS
+
+
+def _rate_limit_cooldown_active() -> bool:
+    with _rate_limit_lock:
+        return time.monotonic() < _rate_limited_until
 
 
 class NoMemeAvailable(RuntimeError):
@@ -134,6 +160,15 @@ def refill_pool(
     Drosselung durch YouTube wird dagegen durchgereicht, sonst sähe sie aus
     wie "alle Kandidaten unbrauchbar".
     """
+    if _rate_limit_cooldown_active():
+        # Kein Request raus, nicht mal für den Feed - der Cooldown soll
+        # wirklich abklingen, statt bei jedem Türchen-Klick neu angestoßen
+        # zu werden.
+        raise youtube.RateLimited(
+            "YouTube hat uns gerade erst gedrosselt - Pause läuft noch. "
+            "Später erneut versuchen."
+        )
+
     wanted = settings.reserve_target if wanted is None else wanted
     channels = enabled_channels(session, categories)
     if not channels:
@@ -158,11 +193,14 @@ def refill_pool(
         added = 0
         # Die Metadaten kosten je einen Request auf die Watch-Page. Seriell
         # dauert das bei einem kalten Pool zu lange, deshalb schubweise
-        # parallel - und abbrechen, sobald genug beisammen ist.
+        # parallel (klein gehalten) mit einer Pause dazwischen - und
+        # abbrechen, sobald genug beisammen ist.
         with ThreadPoolExecutor(max_workers=_MAX_PARALLEL_CHECKS) as pool:
             for start in range(0, len(candidates), _MAX_PARALLEL_CHECKS):
                 if added >= wanted:
                     break
+                if start > 0:
+                    time.sleep(_BATCH_DELAY_SECONDS)
                 batch = candidates[start : start + _MAX_PARALLEL_CHECKS]
                 try:
                     metas = list(
@@ -179,7 +217,11 @@ def refill_pool(
                 except youtube.RateLimited:
                     # Weitermachen würde die Drosselung nur verlängern und
                     # jeden Kandidaten fälschlich als unbrauchbar verwerfen.
-                    log.warning("YouTube drosselt - Nachschub abgebrochen")
+                    _note_rate_limited()
+                    log.warning(
+                        "YouTube drosselt - Nachschub abgebrochen, Pause %ss",
+                        _RATE_LIMIT_COOLDOWN_SECONDS,
+                    )
                     if added == 0:
                         raise
                     break
@@ -214,27 +256,6 @@ def refill_pool(
     return added
 
 
-def top_up_reserve(variant: str) -> None:
-    """Füllt die Reserve für eine Variante auf.
-
-    Läuft als Background-Task nach dem Response - das Öffnen eines Türchens
-    soll nicht darauf warten, dass zehn weitere Videos geprüft werden.
-    """
-    from .db import session_scope
-
-    try:
-        with session_scope() as session:
-            if unused_video_count(session, variant) < settings.reserve_target:
-                added = refill_pool(
-                    session, categories=normalize_categories(variant)
-                )
-                log.info(
-                    "Reserve '%s' aufgefüllt: %s neue Videos", variant, added
-                )
-    except Exception:  # pragma: no cover - Nachschub ist best effort
-        log.warning("Nachfüllen des Pools fehlgeschlagen", exc_info=True)
-
-
 def assignment_for(session: Session, variant: str, index: int) -> Meme | None:
     """Bereits gepinntes Video für diese Variante, ohne Netzwerkzugriff."""
     assignment = session.get(DoorAssignment, (variant, index))
@@ -250,8 +271,8 @@ def get_or_assign(session: Session, variant: str, index: int) -> Meme:
     categories = normalize_categories(variant)
     video = _take_unused(session, variant, categories)
     if video is None:
-        # Auf dem Request-Pfad nur das eine Video beschaffen, das jetzt
-        # gebraucht wird. Die Reserve füllt der Background-Task.
+        # Nur das eine Video beschaffen, das jetzt gebraucht wird - kein
+        # Vorrat auf Vorrat, das kostet nur unnötige YouTube-Requests.
         try:
             refill_pool(session, wanted=1, categories=categories)
         except youtube.RateLimited as exc:
