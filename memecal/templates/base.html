@@ -13,6 +13,7 @@
     {% if user %}
       <nav>
         <span class="who">{{ user.username }}</span>
+        <a href="/favoriten">Favoriten</a>
         <a href="/einstellungen">Einstellungen</a>
         {% if user.is_admin %}<a href="/admin">Admin</a>{% endif %}
         <form method="post" action="/logout" class="inline">

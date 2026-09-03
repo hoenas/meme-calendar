@@ -101,6 +101,10 @@ Schreibe alle Änderungen an den Requirements in dieses File.
       Werktage.
     * "Nur Türchen bis zum aktuellen Tag" gilt relativ zum individuellen
       Startdatum des jeweiligen Users.
+* **Favoriten** (Update, siehe unten): jedes bereits geöffnete Türchen hat
+  einen Herz-Button, um es zu merken. Eine eigene Seite `/favoriten` listet
+  alle markierten Türchen des Users, damit man ein Lieblingsmeme leichter
+  wiederfindet.
 * **Inhalt ist pro User wählbar**
     * Kategorien: **Memes**, **Katzen**, **Hunde** (`config.CATEGORIES`).
       Jeder Kanal gehört zu genau einer, jeder User wählt eine oder mehrere
@@ -174,3 +178,19 @@ Migrationen — eine vorhandene Entwicklungs-Datenbank muss gelöscht werden.
       Bundesland bräuchte.
     * Darstellung bleibt wie zuvor: Türchen zeigen weiterhin nur ihre
       Nummer, kein Datum und kein Countdown auf dem Türchen selbst.
+
+## Entscheidungen (2026-09-03, weiterer Nachtrag)
+
+* **Favoriten-Funktion** hinzugefügt: Herz-Button (♡/♥) im geöffneten
+  Türchen (`partials/favorite_button.html`), togglebar per
+  `POST /door/{index}/favorite`. Neues Feld `UserDoor.is_favorite`
+  (`Boolean`, Default `False`) — keine eigene Tabelle, da ein Favorit immer
+  an ein bereits geöffnetes Türchen eines Users gebunden ist.
+    * Favorisieren geht nur für bereits geöffnete Türchen (`UserDoor`-Zeile
+      muss existieren); sonst `404`.
+    * `GET /favoriten` zeigt alle favorisierten Türchen des Users als
+      Karten-Raster, neueste zuerst (`UserDoor.opened_at desc`), mit
+      Thumbnail, Titel und Klick zum Wiederansehen (öffnet dasselbe Modal
+      wie im Kalender-Raster).
+    * Favorisierte, bereits geöffnete Türchen zeigen im Kalender-Raster
+      zusätzlich ein kleines Herz-Badge.

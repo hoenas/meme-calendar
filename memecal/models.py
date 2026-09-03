@@ -121,6 +121,8 @@ class UserDoor(Base):
     #: Kategorien später ändert.
     variant: Mapped[str] = mapped_column(String(255), default=DEFAULT_CATEGORY)
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: Per Herz-Button markiert, damit der User es leichter wiederfindet.
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
 
     user: Mapped[User] = relationship(back_populates="doors")
 

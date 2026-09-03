@@ -26,6 +26,7 @@
                 hx-target="#modal-body"
                 title="Türchen {{ door.index }} — {{ door.day.strftime('%d.%m.%Y') }}">
           <img src="{{ door.thumbnail_url }}" alt="" loading="lazy">
+          {% if door.favorite %}<span class="fav-badge" aria-hidden="true">♥</span>{% endif %}
           <span class="num">{{ door.index }}</span>
           <span class="spinner"></span>
         </button>

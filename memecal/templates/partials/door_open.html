@@ -1,5 +1,6 @@
 <div class="meme">
   <button class="close" onclick="closeModal()" aria-label="Schließen">×</button>
+  {% include "partials/favorite_button.html" %}
   <div class="video">
     <iframe src="{{ meme.embed_url }}"
             title="{{ meme.title }}"

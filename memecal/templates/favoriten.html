@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Favoriten – Meme-Kalender{% endblock %}
+
+{% block content %}
+<section class="intro">
+  <h1>Deine Favoriten</h1>
+  <p class="meta">Memes, die du dir mit ♥ gemerkt hast.</p>
+</section>
+
+{% if not favorites %}
+  <p class="empty">
+    Noch keine Favoriten. Drück beim Ansehen eines Memes auf das Herz, um es
+    hier wiederzufinden.
+  </p>
+{% else %}
+  <div class="fav-list">
+    {% for fav in favorites %}
+      <button class="fav-card"
+              hx-get="/door/{{ fav.index }}"
+              hx-target="#modal-body"
+              title="Türchen {{ fav.index }}{% if fav.day %} — {{ fav.day.strftime('%d.%m.%Y') }}{% endif %}">
+        <img src="{{ fav.meme.thumbnail_url }}" alt="" loading="lazy">
+        <span class="fav-card-title">{{ fav.meme.title }}</span>
+        <span class="num">{{ fav.index }}</span>
+        <span class="spinner"></span>
+      </button>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -39,6 +39,7 @@ from .auth import (
 )
 from .calendar_view import (
     build_doors,
+    build_favorites,
     door_count,
     effective_end_date,
     effective_end_date_for,
@@ -350,15 +351,64 @@ def open_door(
         return render(request, "partials/door_error.html", index=index, message=str(exc))
 
     if existing is None:
-        session.add(UserDoor(user_id=user.id, index=index, variant=variant))
+        existing = UserDoor(user_id=user.id, index=index, variant=variant)
+        session.add(existing)
         try:
             session.commit()
         except IntegrityError:
             session.rollback()
+            existing = session.scalar(
+                select(UserDoor).where(
+                    UserDoor.user_id == user.id, UserDoor.index == index
+                )
+            )
 
     # Erst antworten, dann nachlegen - der User wartet nicht auf die Reserve.
     background.add_task(service.top_up_reserve, variant)
-    return render(request, "partials/door_open.html", index=index, meme=meme)
+    return render(
+        request,
+        "partials/door_open.html",
+        index=index,
+        meme=meme,
+        favorite=existing.is_favorite if existing else False,
+    )
+
+
+@app.post("/door/{index}/favorite", response_class=HTMLResponse)
+def toggle_favorite(
+    index: int,
+    request: Request,
+    user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    """Merkt ein bereits geöffnetes Türchen als Favorit, oder entfernt es wieder."""
+    door = session.scalar(
+        select(UserDoor).where(UserDoor.user_id == user.id, UserDoor.index == index)
+    )
+    if door is None:
+        raise HTTPException(
+            status_code=404, detail="Dieses Türchen wurde noch nicht geöffnet."
+        )
+    door.is_favorite = not door.is_favorite
+    session.commit()
+    return render(
+        request, "partials/favorite_button.html", index=index, favorite=door.is_favorite
+    )
+
+
+@app.get("/favoriten", response_class=HTMLResponse)
+def favorites(
+    request: Request,
+    user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    end = effective_end_date_for(session, user)
+    return render(
+        request,
+        "favoriten.html",
+        user=user,
+        favorites=build_favorites(session, user, end),
+    )
 
 
 # --------------------------------------------------------------------------

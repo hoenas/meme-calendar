@@ -5,14 +5,18 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .days import days_between, total_doors, unlocked_count
+from .days import days_between, door_date, total_doors, unlocked_count
 from .models import User, UserDoor
 from .service import get_setting
+
+if TYPE_CHECKING:
+    from .service import Meme
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,15 @@ class Door:
     #: User hat es bereits geöffnet - zeigt Thumbnail statt Symbol.
     opened: bool
     thumbnail_url: str = ""
+    #: Vom User mit dem Herz-Button markiert.
+    favorite: bool = False
+
+
+@dataclass(frozen=True)
+class FavoriteDoor:
+    index: int
+    day: date | None
+    meme: Meme
 
 
 def effective_end_date(session: Session) -> date:
@@ -69,6 +82,7 @@ def build_doors(
     # Variante von damals, nicht die aktuelle: ein geöffnetes Türchen behält
     # sein Video, auch wenn der User seine Kategorien inzwischen umgestellt hat.
     opened = {row.index: row.variant for row in opened_rows}
+    favorites = {row.index for row in opened_rows if row.is_favorite}
 
     from .service import assignment_for  # zirkulärer Import vermieden
 
@@ -85,6 +99,7 @@ def build_doors(
                 unlocked=index <= unlocked,
                 opened=index in opened,
                 thumbnail_url=thumb,
+                favorite=index in favorites,
             )
         )
     return doors
@@ -94,3 +109,31 @@ def door_count(user: User, end: date) -> int:
     if user.started_on is None:
         return 0
     return total_doors(user.started_on, end)
+
+
+def build_favorites(session: Session, user: User, end: date) -> list[FavoriteDoor]:
+    """Alle vom User als Favorit markierten Türchen, neueste zuerst."""
+    if user.started_on is None:
+        return []
+
+    from .service import assignment_for  # zirkulärer Import vermieden
+
+    rows = session.scalars(
+        select(UserDoor)
+        .where(UserDoor.user_id == user.id, UserDoor.is_favorite.is_(True))
+        .order_by(UserDoor.opened_at.desc())
+    ).all()
+
+    favorites: list[FavoriteDoor] = []
+    for row in rows:
+        meme = assignment_for(session, row.variant, row.index)
+        if meme is None:
+            continue
+        favorites.append(
+            FavoriteDoor(
+                index=row.index,
+                day=door_date(user.started_on, row.index, end),
+                meme=meme,
+            )
+        )
+    return favorites

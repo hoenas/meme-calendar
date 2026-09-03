@@ -1,0 +1,8 @@
+<button class="favorite{{ ' is-fav' if favorite else '' }}"
+        hx-post="/door/{{ index }}/favorite"
+        hx-target="this"
+        hx-swap="outerHTML"
+        aria-pressed="{{ 'true' if favorite else 'false' }}"
+        title="{{ 'Favorit entfernen' if favorite else 'Als Favorit merken' }}">
+  <span aria-hidden="true">{{ '♥' if favorite else '♡' }}</span>
+</button>

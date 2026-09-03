@@ -74,6 +74,10 @@ Wiederholungsfreiheit gilt innerhalb einer Variante. Ein geöffnetes Türchen
 merkt sich seine Variante und ändert sich auch dann nicht mehr, wenn der User
 später umstellt.
 
+**Favoriten.** Ein Herz-Button im geöffneten Türchen markiert es als Favorit
+(`UserDoor.is_favorite`); `/favoriten` listet sie als Karten-Raster zum
+Wiederansehen.
+
 ## Konfiguration
 
 Alles über Env mit Prefix `MEMECAL_`, siehe `.env.example` und

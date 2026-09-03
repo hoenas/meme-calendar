@@ -537,3 +537,56 @@ def test_anonymer_zugriff_wird_umgeleitet(client):
     resp = client.get("/", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+def test_favorit_markieren_und_wieder_entfernen(client, fake_youtube):
+    _add_channel()
+    _make_user("jonas", started_on=date.today())
+    _login(client, "jonas")
+    client.get("/door/1")
+
+    resp = client.post("/door/1/favorite")
+    assert resp.status_code == 200
+    assert "is-fav" in resp.text
+    assert 'aria-pressed="true"' in resp.text
+
+    resp = client.post("/door/1/favorite")
+    assert "is-fav" not in resp.text
+    assert 'aria-pressed="false"' in resp.text
+
+
+def test_favorit_auf_ungeoeffnetem_tuerchen_schlaegt_fehl(client, fake_youtube):
+    _add_channel()
+    _make_user("jonas", started_on=date.today())
+    _login(client, "jonas")
+
+    resp = client.post("/door/1/favorite")
+    assert resp.status_code == 404
+
+
+def test_favoriten_seite_zeigt_nur_markierte_tuerchen(client, fake_youtube):
+    import re
+
+    _add_channel()
+    _make_user("jonas", started_on=date.today() - timedelta(days=3))
+    _login(client, "jonas")
+
+    door1 = client.get("/door/1").text
+    client.get("/door/2")
+    client.post("/door/1/favorite")
+
+    title1 = re.search(r'<p class="meme-title">(.*?)</p>', door1).group(1)
+
+    resp = client.get("/favoriten")
+    assert resp.status_code == 200
+    assert title1 in resp.text
+    assert resp.text.count('class="fav-card"') == 1
+
+
+def test_favoriten_seite_leer_ohne_favoriten(client):
+    _make_user("jonas", started_on=date.today())
+    _login(client, "jonas")
+
+    resp = client.get("/favoriten")
+    assert resp.status_code == 200
+    assert "Noch keine Favoriten" in resp.text
