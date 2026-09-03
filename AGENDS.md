@@ -7,7 +7,7 @@ Diese App soll für jeden Arbeitstag bis zu einem bestimmten Datum ein deutsches
     * Memes sollten wiederholungsfrei sein, falls möglich
     * Memes sollten kurze Videos sein, die embedded abgespielt werden können
 * Seite
-    * Ist hinter einem Reverse-Proxy auf zitronas.deutsches
+    * Ist hinter einem Reverse-Proxy auf memecal.zitronas.de
     * Sollte per Login abgesichert sein, Freigabe über Admin Account
     * Sollte Kalender-Übersicht zeigen
     * Klick auf (freigeschaltete) Türchen spielt das Meme
