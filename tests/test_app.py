@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -347,6 +348,39 @@ def test_memes_wiederholen_sich_nicht(client, fake_youtube):
             meme = service.get_or_assign(session, "memes", index)
             assert meme.video_id not in seen
             seen.add(meme.video_id)
+
+
+def test_gleichzeitig_geoeffnete_tuerchen_teilen_kein_video(client, fake_youtube, monkeypatch):
+    """Regression: zwei parallel geöffnete Türchen derselben Variante dürfen
+    sich nicht dasselbe frisch beschaffte Video schnappen. Ohne Lock in
+    get_or_assign können beide gleichzeitig "kein unbenutztes Video" sehen,
+    dasselbe neu beschaffte Video vorfinden und es an zwei Indizes pinnen."""
+    _add_channel()
+
+    original_meta = service.youtube.fetch_video_meta
+
+    def slow_meta(vid, client=None):
+        # Simuliert den echten (langsamen) Watch-Page-Abruf, um das
+        # Zeitfenster fürs Race künstlich zu vergrößern.
+        threading.Event().wait(0.05)
+        return original_meta(vid, client=client)
+
+    monkeypatch.setattr(service.youtube, "fetch_video_meta", slow_meta)
+
+    results: dict[int, str] = {}
+
+    def worker(index: int) -> None:
+        with SessionLocal() as session:
+            results[index] = service.get_or_assign(session, "memes", index).video_id
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(1, 6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    assert len(results) == 5
+    assert len(set(results.values())) == 5
 
 
 def test_variante_ist_sortiert_und_bereinigt():

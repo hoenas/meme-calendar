@@ -41,6 +41,20 @@ _RATE_LIMIT_COOLDOWN_SECONDS = 10 * 60
 _rate_limit_lock = threading.Lock()
 _rate_limited_until: float = 0.0
 
+#: Verhindert, dass zwei gleichzeitig geöffnete Türchen derselben Variante
+#: sich das gleiche frisch beschaffte Video schnappen (siehe get_or_assign).
+_variant_locks: dict[str, threading.Lock] = {}
+_variant_locks_guard = threading.Lock()
+
+
+def _lock_for(variant: str) -> threading.Lock:
+    with _variant_locks_guard:
+        lock = _variant_locks.get(variant)
+        if lock is None:
+            lock = threading.Lock()
+            _variant_locks[variant] = lock
+        return lock
+
 
 def _note_rate_limited() -> None:
     global _rate_limited_until
@@ -278,36 +292,45 @@ def get_or_assign(session: Session, variant: str, index: int) -> Meme:
         return existing
 
     categories = normalize_categories(variant)
-    video = _take_unused(session, variant, categories)
-    if video is None:
-        # Nur das eine Video beschaffen, das jetzt gebraucht wird - kein
-        # Vorrat auf Vorrat, das kostet nur unnötige YouTube-Requests.
-        try:
-            refill_pool(session, wanted=1, categories=categories)
-        except youtube.RateLimited as exc:
-            raise NoMemeAvailable(
-                "YouTube drosselt gerade die Abrufe. Das Türchen bleibt "
-                "unverbraucht - bitte in ein paar Minuten nochmal probieren."
-            ) from exc
+    # Ohne diesen Lock können zwei gleichzeitig geöffnete Türchen derselben
+    # Variante (z.B. weil der User ungeduldig weiterklickt, während das erste
+    # noch lädt) beide "kein unbenutztes Video da" sehen, beide dasselbe neu
+    # beschaffte Video als unbenutzt vorfinden und es an zwei Indizes pinnen.
+    with _lock_for(variant):
+        existing = assignment_for(session, variant, index)
+        if existing is not None:
+            return existing
+
         video = _take_unused(session, variant, categories)
-    if video is None:
-        raise NoMemeAvailable(
-            "Für deine Auswahl wurde nichts gefunden. Sind für diese "
-            "Kategorien Kanäle konfiguriert und ist YouTube erreichbar?"
-        )
+        if video is None:
+            # Nur das eine Video beschaffen, das jetzt gebraucht wird - kein
+            # Vorrat auf Vorrat, das kostet nur unnötige YouTube-Requests.
+            try:
+                refill_pool(session, wanted=1, categories=categories)
+            except youtube.RateLimited as exc:
+                raise NoMemeAvailable(
+                    "YouTube drosselt gerade die Abrufe. Das Türchen bleibt "
+                    "unverbraucht - bitte in ein paar Minuten nochmal probieren."
+                ) from exc
+            video = _take_unused(session, variant, categories)
+        if video is None:
+            raise NoMemeAvailable(
+                "Für deine Auswahl wurde nichts gefunden. Sind für diese "
+                "Kategorien Kanäle konfiguriert und ist YouTube erreichbar?"
+            )
 
-    session.add(DoorAssignment(variant=variant, index=index, video_pk=video.id))
-    try:
-        session.commit()
-    except IntegrityError:
-        # Anderer Request war schneller - dessen Zuordnung gilt.
-        session.rollback()
-        pinned = assignment_for(session, variant, index)
-        if pinned is None:
-            raise
-        return pinned
+        session.add(DoorAssignment(variant=variant, index=index, video_pk=video.id))
+        try:
+            session.commit()
+        except IntegrityError:
+            # Anderer Request war schneller - dessen Zuordnung gilt.
+            session.rollback()
+            pinned = assignment_for(session, variant, index)
+            if pinned is None:
+                raise
+            return pinned
 
-    return _to_meme(video)
+        return _to_meme(video)
 
 
 def _take_unused(
